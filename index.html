@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Método Veredito</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+      color: #222;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 26px;
+      margin-bottom: 5px;
+    }
+
+    header p {
+      opacity: 0.8;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 25px auto;
+      padding: 0 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 3px 15px rgba(0,0,0,0.06);
+    }
+
+    h2 {
+      margin-bottom: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #111827;
+      color: white;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .lead {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 12px;
+    }
+
+    .lead strong {
+      font-size: 18px;
+    }
+
+    .lead-info {
+      margin-top: 8px;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+
+    .status {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 5px 9px;
+      border-radius: 20px;
+      background: #e5e7eb;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>MÉTODO VEREDITO</h1>
+  <p>Diagnóstico e acompanhamento de clientes</p>
+</header>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <section id="loginSection" class="card">
+    <h2>Entrar</h2>
+
+    <div id="loginMessage" class="message"></div>
+
+    <div class="grid">
+
+      <div>
+        <label>E-mail</label>
+        <input id="loginEmail" type="email" placeholder="seu@email.com">
+      </div>
+
+      <div>
+        <label>Senha</label>
+        <input id="loginPassword" type="password" placeholder="Sua senha">
+      </div>
+
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="login()">
+        Entrar
+      </button>
+    </div>
+
+    <p style="margin-top:15px;color:#6b7280;">
+      Ainda não possui acesso? O administrador deverá criar seu usuário.
+    </p>
+  </section>
+
+
+  <!-- SISTEMA -->
+  <section id="appSection" class="hidden">
+
+    <div class="topbar">
+      <div>
+        <h2>CRM — Método Veredito</h2>
+        <p id="userInfo"></p>
+      </div>
+
+      <button class="btn-secondary" onclick="logout()">
+        Sair
+      </button>
+    </div>
+
+
+    <!-- NOVO LEAD -->
+    <div class="card">
+
+      <h2>Novo cliente</h2>
+
+      <div id="leadMessage" class="message"></div>
+
+      <div class="grid">
+
+        <div>
+          <label>Nome do cliente *</label>
+          <input id="nome" type="text">
+        </div>
+
+        <div>
+          <label>CPF</label>
+          <input id="cpf" type="text">
+        </div>
+
+        <div>
+          <label>Telefone *</label>
+          <input id="telefone" type="text">
+        </div>
+
+        <div>
+          <label>Endereço completo</label>
+          <input id="endereco" type="text">
+        </div>
+
+        <div>
+          <label>Operadora atual</label>
+          <select id="operadora">
+            <option value="">Selecione</option>
+            <option>Claro</option>
+            <option>Vivo</option>
+            <option>TIM</option>
+            <option>Oi</option>
+            <option>Outra</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Tipo de plano</label>
+          <select id="tipo_plano">
+            <option value="">Selecione</option>
+            <option>Recarga / Pré</option>
+            <option>Controle</option>
+            <option>Pós-pago</option>
+            <option>Internet</option>
+            <option>TV</option>
+            <option>Combo</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Valor mensal atual</label>
+          <input id="valor_mensal" type="number" step="0.01">
+        </div>
+
+        <div>
+          <label>A internet dura o mês?</label>
+          <select id="dura_mes">
+            <option value="">Selecione</option>
+            <option>Sim</option>
+            <option>Não</option>
+            <option>Às vezes</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label>Qual é o problema do cliente?</label>
+          <textarea id="problema"></textarea>
+        </div>
+
+        <div class="full">
+          <label>O que ele gostaria de melhorar?</label>
+          <textarea id="melhorar"></textarea>
+        </div>
+
+        <div class="full">
+          <label>Interesses</label>
+          <input
+            id="interesses"
+            type="text"
+            placeholder="Ex.: mais internet, preço menor, 5G"
+          >
+        </div>
+
+        <div class="full">
+          <label>Observações</label>
+          <textarea id="obs"></textarea>
+        </div>
+
+      </div>
+
+      <div class="actions">
+
+        <button class="btn-primary" onclick="salvarLead()">
+          Salvar diagnóstico
+        </button>
+
+        <button class="btn-secondary" onclick="limparFormulario()">
+          Limpar
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <!-- LISTA -->
+    <div class="card">
+
+      <div class="topbar">
+        <h2>Meus clientes</h2>
+
+        <button class="btn-secondary" onclick="carregarLeads()">
+          Atualizar
+        </button>
+      </div>
+
+      <div id="listaLeads">
+        Carregando clientes...
+      </div>
+
+    </div>
+
+  </section>
+
+</div>
+
+
+<script>
+
+  // ==========================================
+  // CONFIGURAÇÃO DO SUPABASE
+  // ==========================================
+
+  const SUPABASE_URL =
+    "https://mrkdfknujzxigsezrcjn.supabase.co";
+
+  const SUPABASE_KEY =
+    "sb_publishable_MqMvSGTAocRqQkCEQOrjyg_-nw3TSA9";
+
+  const supabaseClient =
+    window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+
+  // ==========================================
+  // MENSAGENS
+  // ==========================================
+
+  function mostrarMensagem(elemento, texto, tipo) {
+
+    elemento.textContent = texto;
+    elemento.className = "message " + tipo;
+    elemento.style.display = "block";
+
+    setTimeout(() => {
+      elemento.style.display = "none";
+    }, 5000);
+  }
+
+
+  // ==========================================
+  // LOGIN
+  // ==========================================
+
+  async function login() {
+
+    const email =
+      document.getElementById("loginEmail").value.trim();
+
+    const password =
+      document.getElementById("loginPassword").value;
+
+    const message =
+      document.getElementById("loginMessage");
+
+    if (!email || !password) {
+
+      mostrarMensagem(
+        message,
+        "Digite seu e-mail e sua senha.",
+        "error"
+      );
+
+      return;
+    }
+
+    const { data, error } =
+      await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
+    if (error) {
+
+      mostrarMensagem(
+        message,
+        "Não foi possível entrar: " + error.message,
+        "error"
+      );
+
+      return;
+    }
+
+    iniciarSistema(data.user);
+  }
+
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+
+  async function logout() {
+
+    await supabaseClient.auth.signOut();
+
+    document
+      .getElementById("appSection")
+      .classList.add("hidden");
+
+    document
+      .getElementById("loginSection")
+      .classList.remove("hidden");
+
+  }
+
+
+  // ==========================================
+  // INICIAR SISTEMA
+  // ==========================================
+
+  async function iniciarSistema(user) {
+
+    document
+      .getElementById("loginSection")
+      .classList.add("hidden");
+
+    document
+      .getElementById("appSection")
+      .classList.remove("hidden");
+
+    document.getElementById("userInfo").textContent =
+      "Usuário: " + (user.email || "");
+
+    await carregarLeads();
+
+  }
+
+
+  // ==========================================
+  // SALVAR LEAD
+  // ==========================================
+
+  async function salvarLead() {
+
+    const message =
+      document.getElementById("leadMessage");
+
+    const {
+      data: {
+        user
+      }
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+
+      mostrarMensagem(
+        message,
+        "Sua sessão expirou. Faça login novamente.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const nome =
+      document.getElementById("nome").value.trim();
+
+    const telefone =
+      document.getElementById("telefone").value.trim();
+
+
+    if (!nome || !telefone) {
+
+      mostrarMensagem(
+        message,
+        "Nome e telefone são obrigatórios.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const interessesTexto =
+      document.getElementById("interesses").value.trim();
+
+
+    const interesses =
+      interessesTexto
+        ? interessesTexto
+            .split(",")
+            .map(item => item.trim())
+            .filter(Boolean)
+        : [];
+
+
+    const lead = {
+
+      vendedor_id: user.id,
+
+      nome: nome,
+
+      cpf:
+        document.getElementById("cpf").value.trim() || null,
+
+      telefone: telefone,
+
+      endereco:
+        document.getElementById("endereco").value.trim() || null,
+
+      operadora:
+        document.getElementById("operadora").value || null,
+
+      tipo_plano:
+        document.getElementById("tipo_plano").value || null,
+
+      valor_mensal:
+        document.getElementById("valor_mensal").value
+          ? Number(document.getElementById("valor_mensal").value)
+          : null,
+
+      dura_mes:
+        document.getElementById("dura_mes").value || null,
+
+      problema:
+        document.getElementById("problema").value.trim() || null,
+
+      melhorar:
+        document.getElementById("melhorar").value.trim() || null,
+
+      interesses: interesses,
+
+      obs:
+        document.getElementById("obs").value.trim() || null,
+
+      status: "Novo"
+    };
+
+
+    const { error } =
+      await supabaseClient
+        .from("leads")
+        .insert(lead);
+
+
+    if (error) {
+
+      console.error(error);
+
+      mostrarMensagem(
+        message,
+        "Erro ao salvar cliente: " + error.message,
+        "error"
+      );
+
+      return;
+    }
+
+
+    mostrarMensagem(
+      message,
+      "Cliente salvo com sucesso!",
+      "success"
+    );
+
+
+    limparFormulario();
+
+    await carregarLeads();
+
+  }
+
+
+  // ==========================================
+  // CARREGAR LEADS
+  // ==========================================
+
+  async function carregarLeads() {
+
+    const lista =
+      document.getElementById("listaLeads");
+
+    lista.innerHTML = "Carregando clientes...";
+
+
+    const {
+      data: {
+        user
+      }
+    } = await supabaseClient.auth.getUser();
+
+
+    if (!user) {
+
+      lista.innerHTML = "Faça login para visualizar seus clientes.";
+
+      return;
+    }
+
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .from("leads")
+        .select("*")
+        .order("created_at", {
+          ascending: false
+        });
+
+
+    if (error) {
+
+      console.error(error);
+
+      lista.innerHTML =
+        "<p>Erro ao carregar clientes: " +
+        error.message +
+        "</p>";
+
+      return;
+    }
+
+
+    if (!data || data.length === 0) {
+
+      lista.innerHTML =
+        "<p>Nenhum cliente cadastrado ainda.</p>";
+
+      return;
+    }
+
+
+    lista.innerHTML = "";
+
+
+    data.forEach(lead => {
+
+      const div =
+        document.createElement("div");
+
+      div.className = "lead";
+
+
+      const dataCriacao =
+        lead.criado_em
+          ? new Date(
+              lead.criado_em + "T00:00:00"
+            ).toLocaleDateString("pt-BR")
+          : "";
+
+
+      div.innerHTML = `
+
+        <strong>${escapeHtml(lead.nome)}</strong>
+
+        <span class="status">
+          ${escapeHtml(lead.status)}
+        </span>
+
+        <div class="lead-info">
+
+          <div>
+            📱 ${escapeHtml(lead.telefone || "")}
+          </div>
+
+          <div>
+            Operadora:
+            ${escapeHtml(lead.operadora || "Não informado")}
+          </div>
+
+          <div>
+            Plano:
+            ${escapeHtml(lead.tipo_plano || "Não informado")}
+          </div>
+
+          <div>
+            Cadastro:
+            ${dataCriacao}
+          </div>
+
+        </div>
+
+      `;
+
+
+      lista.appendChild(div);
+
+    });
+
+  }
+
+
+  // ==========================================
+  // LIMPAR FORMULÁRIO
+  // ==========================================
+
+  function limparFormulario() {
+
+    const campos = [
+
+      "nome",
+      "cpf",
+      "telefone",
+      "endereco",
+      "valor_mensal",
+      "problema",
+      "melhorar",
+      "interesses",
+      "obs"
+
+    ];
+
+
+    campos.forEach(id => {
+
+      const elemento =
+        document.getElementById(id);
+
+      if (elemento) {
+        elemento.value = "";
+      }
+
+    });
+
+
+    document.getElementById("operadora").value = "";
+    document.getElementById("tipo_plano").value = "";
+    document.getElementById("dura_mes").value = "";
+
+  }
+
+
+  // ==========================================
+  // SEGURANÇA CONTRA HTML
+  // ==========================================
+
+  function escapeHtml(text) {
+
+    const div =
+      document.createElement("div");
+
+    div.textContent = text;
+
+    return div.innerHTML;
+
+  }
+
+
+  // ==========================================
+  // VERIFICAR SESSÃO AO ABRIR
+  // ==========================================
+
+  async function verificarSessao() {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabaseClient.auth.getSession();
+
+
+    if (session && session.user) {
+
+      iniciarSistema(session.user);
+
+    }
+
+  }
+
+
+  verificarSessao();
+
+
+</script>
+
+</body>
+</html>

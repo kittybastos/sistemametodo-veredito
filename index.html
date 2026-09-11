@@ -484,7 +484,7 @@ async function startApp(user){
     console.error(error);
     setState('err');
     $('authGate').style.display='flex';
-    authMessage('error','Não foi possível carregar o perfil. Verifique as tabelas e as permissões do Supabase.');
+    authMessage('error','Erro Supabase: ' + (error?.message || error?.details || error?.hint || error?.code || JSON.stringify(error)));
   }
 }
 
@@ -538,9 +538,10 @@ async function loadData(){
     setState('ok');
     renderAll();
   }catch(error){
-    console.error(error);
+    console.error('LOAD DATA ERROR:', error);
     setState('err');
-    toast('Erro ao carregar dados');
+    toast('Erro ao carregar dados: ' + (error?.message || error?.code || 'erro desconhecido'));
+    throw error;
   }
 }
 

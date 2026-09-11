@@ -469,7 +469,7 @@ async function startApp(user){
       const result = await db.from('profiles').upsert({
         id:user.id,
         nome,
-        email:user.email
+        role:'vendedor'
       }).select().single();
 
       if(result.error) throw result.error;
@@ -490,8 +490,8 @@ async function startApp(user){
 
 async function loadData(){
   try{
-    const {data:rows,error} = await db.from('leads')
-      .select('*').eq('vendedor_id',currentUser.id)
+    const {data:rows,error} = await db.from('crm_leads')
+      .select('*').eq('owner_id',currentUser.id)
       .order('criado_em',{ascending:false});
     if(error) throw error;
 
@@ -512,9 +512,9 @@ async function loadData(){
         valorMensal:r.valor_mensal??'',duraMes:r.dura_mes||'',problema:r.problema||'',
         melhorar:r.melhorar||'',interesses:r.interesses||[],obs:r.obs||'',status:r.status||'Novo',
         veredito:{
-          necessidade:r.necessidade||'',produto:r.produto||'',valor:r.valor_proposta??'',
-          beneficios:r.beneficios||'',objecao:r.objecao||'',proximoPasso:r.proximo_passo||'',
-          proximoContato:r.proximo_contato||'',dataVenda:r.data_venda||''
+          necessidade:r.veredito?.necessidade||'',produto:r.veredito?.produto||'',valor:r.veredito?.valor??'',
+          beneficios:r.veredito?.beneficios||'',objecao:r.veredito?.objecao||'',proximoPasso:r.veredito?.proximoPasso||'',
+          proximoContato:r.veredito?.proximoContato||'',dataVenda:r.veredito?.dataVenda||''
         },
         historico:histories.filter(h=>h.lead_id===r.id).map(h=>({
           id:h.id,data:h.data,obs:h.observacao||'',resultado:h.resultado||'',proximo:h.proximo_passo||''
@@ -523,20 +523,16 @@ async function loadData(){
     });
 
     const mes=today().slice(0,7)+'-01';
-    const m=await db.from('metas').select('*')
-      .eq('vendedor_id',currentUser.id).eq('mes',mes).maybeSingle();
+    const m=await db.from('crm_metas').select('*')
+      .eq('user_id',currentUser.id).limit(1);
     if(m.error) throw m.error;
-    if(m.data){
-      metas={
-        controle:m.data.controle||0,recarga:m.data.recarga||0,
-        bandaLarga:m.data.banda_larga||0,tv:m.data.tv||0,
-        portabilidade:m.data.portabilidade||0
-      };
+    if(m.data?.[0]){
+      metas={...metas,...(m.data[0].data || {})};
     }
 
-    const team=await db.from('equipe').select('*').eq('vendedor_id',currentUser.id).maybeSingle();
-    if(!team.error && team.data){
-      teamData=team.data.dados || team.data.data || teamData;
+    const team=await db.from('crm_acompanhamento').select('*').eq('user_id',currentUser.id).limit(1);
+    if(!team.error && team.data?.[0]){
+      teamData=team.data[0].data || teamData;
     }
 
     setState('ok');
@@ -551,20 +547,16 @@ async function loadData(){
 async function saveLead(lead){
   const v=lead.veredito||{};
   const payload={
-    id:lead.id,vendedor_id:currentUser.id,criado_em:lead.criadoEm||today(),
+    id:lead.id,owner_id:currentUser.id,criado_em:lead.criadoEm||today(),
     nome:lead.nome,cpf:lead.cpf||null,telefone:lead.telefone||null,endereco:lead.endereco||null,
     operadora:lead.operadora||null,tipo_plano:lead.tipoPlano||null,
     valor_mensal:lead.valorMensal===''?null:Number(lead.valorMensal),
     dura_mes:lead.duraMes||null,problema:lead.problema||null,melhorar:lead.melhorar||null,
     interesses:lead.interesses||[],obs:lead.obs||null,status:lead.status||'Novo',
-    necessidade:v.necessidade||null,produto:v.produto||null,
-    valor_proposta:v.valor===''?null:Number(v.valor),
-    proximo_contato:v.proximoContato||null,beneficios:v.beneficios||null,
-    objecao:v.objecao||null,proximo_passo:v.proximoPasso||null,
-    data_venda:v.dataVenda||null
+    veredito:v
   };
 
-  const {error}=await db.from('leads').upsert(payload);
+  const {error}=await db.from('crm_leads').upsert(payload);
   if(error) throw error;
 }
 
@@ -783,10 +775,15 @@ function renderEquipe(){
 async function saveTeam(){
   setState('saving');
   try{
-    const {error}=await db.from('equipe').upsert({
-      vendedor_id:currentUser.id,dados:teamData
-    },{onConflict:'vendedor_id'});
-    if(error)throw error;
+    const existing=await db.from('crm_acompanhamento').select('user_id').eq('user_id',currentUser.id).limit(1);
+    if(existing.error)throw existing.error;
+    let result;
+    if(existing.data?.length){
+      result=await db.from('crm_acompanhamento').update({data:teamData}).eq('user_id',currentUser.id);
+    }else{
+      result=await db.from('crm_acompanhamento').insert({user_id:currentUser.id,data:teamData});
+    }
+    if(result.error)throw result.error;
     setState('ok');
   }catch(e){
     console.error(e);setState('err');toast('Erro ao salvar funil');
@@ -940,7 +937,7 @@ $('btnExcluirLead').onclick=async()=>{
 
   setState('saving');
   try{
-    const {error}=await db.from('leads').delete().eq('id',l.id).eq('vendedor_id',currentUser.id);
+    const {error}=await db.from('crm_leads').delete().eq('id',l.id).eq('owner_id',currentUser.id);
     if(error)throw error;
     delete leads[l.id];setState('ok');toast('Lead excluído');goTo('leads');
   }catch(e){
@@ -953,13 +950,15 @@ $('btnSalvarMetas').onclick=async()=>{
   document.querySelectorAll('[data-meta]').forEach(i=>metas[i.dataset.meta]=Number(i.value)||0);
   setState('saving');
   try{
-    const mes=today().slice(0,7)+'-01';
-    const {error}=await db.from('metas').upsert({
-      vendedor_id:currentUser.id,mes,
-      controle:metas.controle,recarga:metas.recarga,
-      banda_larga:metas.bandaLarga,tv:metas.tv,portabilidade:metas.portabilidade
-    },{onConflict:'vendedor_id,mes'});
-    if(error)throw error;
+    const existing=await db.from('crm_metas').select('user_id').eq('user_id',currentUser.id).limit(1);
+    if(existing.error)throw existing.error;
+    let result;
+    if(existing.data?.length){
+      result=await db.from('crm_metas').update({data:metas}).eq('user_id',currentUser.id);
+    }else{
+      result=await db.from('crm_metas').insert({user_id:currentUser.id,data:metas});
+    }
+    if(result.error)throw result.error;
     setState('ok');renderMetas();renderDashboard();toast('Metas salvas ✓');
   }catch(e){console.error(e);setState('err');toast('Erro ao salvar metas')}
 };

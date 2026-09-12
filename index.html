@@ -455,6 +455,15 @@ function showLogin(){
 }
 
 async function startApp(user){
+  // Nunca enviaremos IDs de leads para campos UUID.
+  if(!user?.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.id)){
+    console.error('Sessão inválida: user.id não é UUID', user?.id);
+    try{ await db.auth.signOut(); }catch(_){}
+    currentUser=null;
+    $('authGate').style.display='flex';
+    authMessage('error','Sua sessão estava inválida. Entre novamente.');
+    return;
+  }
   currentUser=user;
   setState('loading');
 
@@ -490,21 +499,13 @@ async function startApp(user){
 
 async function loadData(){
   try{
+    const leadColumns='id,owner_id,criado_em,nome,cpf,telefone,endereco,operadora,tipo_plano,valor_mensal,dura_mes,problema,melhorar,interesses,obs,status,veredito,historico';
     const {data:rows,error} = await db.from('crm_leads')
-      .select('*').eq('owner_id',currentUser.id)
+      .select(leadColumns).eq('owner_id',currentUser.id)
       .order('criado_em',{ascending:false});
     if(error) throw error;
 
     leads={};
-    const ids=(rows||[]).map(r=>r.id);
-
-    let histories=[];
-    if(ids.length){
-      const h=await db.from('historico').select('*').in('lead_id',ids).order('data',{ascending:false});
-      if(h.error) throw h.error;
-      histories=h.data||[];
-    }
-
     (rows||[]).forEach(r=>{
       leads[r.id]={
         id:r.id,criadoEm:r.criado_em,nome:r.nome||'',cpf:r.cpf||'',telefone:r.telefone||'',
@@ -516,9 +517,10 @@ async function loadData(){
           beneficios:r.veredito?.beneficios||'',objecao:r.veredito?.objecao||'',proximoPasso:r.veredito?.proximoPasso||'',
           proximoContato:r.veredito?.proximoContato||'',dataVenda:r.veredito?.dataVenda||''
         },
-        historico:histories.filter(h=>h.lead_id===r.id).map(h=>({
-          id:h.id,data:h.data,obs:h.observacao||'',resultado:h.resultado||'',proximo:h.proximo_passo||''
-        }))
+        historico:Array.isArray(r.historico) ? r.historico.map(h=>({
+          id:h.id||crypto.randomUUID(),data:h.data||today(),obs:h.obs||h.observacao||'',
+          resultado:h.resultado||'',proximo:h.proximo||h.proximo_passo||''
+        })) : []
       };
     });
 
@@ -562,11 +564,9 @@ async function saveLead(lead){
 }
 
 async function saveHistory(lead,h){
-  const {error}=await db.from('historico').insert({
-    lead_id:lead.id,vendedor_id:currentUser.id,data:h.data,
-    observacao:h.obs,resultado:h.resultado||null,proximo_passo:h.proximo||null
-  });
-  if(error) throw error;
+  lead.historico = Array.isArray(lead.historico) ? lead.historico : [];
+  lead.historico.unshift({...h,id:h.id||crypto.randomUUID()});
+  await saveLead(lead);
 }
 
 function compute(){
@@ -922,8 +922,6 @@ $('btnAddHist').onclick=async()=>{
   setState('saving');
   try{
     await saveHistory(l,h);
-    l.historico.unshift(h);
-    await saveLead(l);
     $('hData').value='';$('hObs').value='';$('hResultado').value='';$('hProximo').value='';
     setState('ok');renderHistory(l);toast('Histórico atualizado ✓');
   }catch(e){
